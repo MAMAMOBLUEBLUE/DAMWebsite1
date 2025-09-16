@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login - DAM</title>
+  <style>
+    :root{ --orange:#ff6600; --bg1:#fff5e6; --bg2:#ff9933 }
+    body{ margin:0; font-family:Arial, Helvetica, sans-serif; background:linear-gradient(135deg,var(--bg1),var(--bg2)); display:flex; align-items:center; justify-content:center; height:100vh }
+    .card{ background:#fff; padding:30px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.15); width:360px; text-align:center }
+    h1{ margin:0 0 20px; font-size:24px; color:var(--orange) }
+    select,input{ width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:8px }
+    button{ width:100%; padding:10px; background:var(--orange); color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:700 }
+    .msg{ margin-top:10px; font-size:14px; color:red }
+    .logo{ margin-bottom:20px }
+    .logo img{ width:200px }
+    
+  </style>
+</head>
+<body>
+  <div class="card">
+    
+    <div class="logo"> 
+                 <img src="dam-logo.png" alt="DAM Logo">
+    </div>
+    <h1>Digital Access Management (DAM)</h1>
+
+    <select id="roleSelect">
+      <option value="admin">Admin</option>
+      <option value="student">Student</option>
+    </select>
+
+    <!-- Admin Login -->
+    <div id="adminLogin">
+      <input id="adminUser" placeholder="Admin UserID" />
+      <input id="adminPass" type="password" placeholder="Password" />
+      <button onclick="loginAdmin()">Login as Admin</button>
+    </div>
+
+    <!-- Student Login -->
+    <div id="studentLogin" style="display:none">
+      <input id="studentNo" placeholder="Student Number" />
+      <input id="studentPass" type="password" placeholder="Password" />
+      <button onclick="loginStudent()">Login as Student</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script>
+    function readStorage(k){ return JSON.parse(localStorage.getItem(k)||'[]') }
+
+    const roleSelect = document.getElementById('roleSelect')
+    roleSelect.addEventListener('change', function(){
+      document.getElementById('adminLogin').style.display = this.value==='admin' ? 'block':'none'
+      document.getElementById('studentLogin').style.display = this.value==='student' ? 'block':'none'
+    })
+
+    function loginAdmin(){
+      const user = document.getElementById('adminUser').value.trim()
+      const pass = document.getElementById('adminPass').value.trim()
+      if(user === "admin" && pass === "1234"){
+        localStorage.removeItem('lastStudent') // clear any previous student login
+        window.location.href = "index.html"
+      } else {
+        document.getElementById('msg').textContent = "Invalid admin login"
+      }
+    }
+
+    function loginStudent(){
+      const no = document.getElementById('studentNo').value.trim()
+      const pass = document.getElementById('studentPass').value.trim()
+      const students = readStorage('students')
+
+      const student = students.find(s => s.studentNumber === no && s.password === pass)
+      if(!student){
+        document.getElementById('msg').textContent = "Invalid student number or password"
+        return
+      }
+
+      // ✅ Save correct student login
+      localStorage.setItem('lastStudent', student.studentNumber)
+
+      window.location.href = "student-dashboard.html"
+    }
+  </script>
+</body>
+</html>

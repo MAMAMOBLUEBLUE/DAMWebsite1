@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Dashboard</title>
+  <style>
+    :root{ --orange:#ff6600; --bg1:#fff5e6; --bg2:#ff9933 }
+    body{ margin:0; font-family:Arial, Helvetica, sans-serif; background:linear-gradient(135deg,var(--bg1),var(--bg2)); padding:28px; position:relative }
+
+    /* Logout button - top right */
+    .logout-btn{
+      position:absolute;
+      top:20px;
+      right:20px;
+      padding:10px 16px;
+      border:none;
+      background:var(--orange);
+      color:#fff;
+      font-weight:700;
+      border-radius:8px;
+      cursor:pointer;
+    }
+
+    h1{ font-size:26px; margin-bottom:18px; font-weight:800 }
+    .dashboard-card{ background:#fff; padding:22px; border-radius:16px; max-width:850px; margin:auto; box-shadow:0 6px 18px rgba(0,0,0,.15) }
+    .student-details{ margin-bottom:16px; }
+    .student-details p{ margin:4px 0; }
+
+    .qr-wrapper{ display:flex; justify-content:center; margin:20px 0 }
+    #qrcode{ background:#f4f4f4; padding:10px; border-radius:12px }
+
+    .qr-actions{ display:flex; gap:10px; justify-content:center; margin-top:10px }
+    .btn{ padding:8px 14px; border-radius:8px; border:none; font-weight:700; cursor:pointer }
+    .btn.orange{ background:var(--orange); color:#fff }
+
+    table{ width:100%; border-collapse:collapse; margin-top:12px }
+    table th, table td{ padding:10px; border-bottom:1px solid #ddd; text-align:left; font-size:14px }
+    table th{ background:var(--orange); color:#fff }
+  </style>
+</head>
+<body>
+
+  <!-- Logout Button -->
+  <button class="logout-btn" onclick="logout()">Logout</button>
+
+  <div class="dashboard-card">
+    <h1>Student Dashboard</h1>
+
+    <div class="student-details" id="studentInfo">
+      <p><b>Student No:</b> [Student No]</p>
+      <p><b>Name:</b> [Student Name]</p>
+      <p><b>Course:</b> [Course]</p>
+      <p><b>Department:</b> [Department]</p>
+      <p><b>Contact:</b> [Contact]</p>
+    </div>
+
+    <!-- QR Code Centered -->
+    <div class="qr-wrapper">
+      <div id="qrcode"></div>
+    </div>
+
+    <!-- QR Actions (Download & Print) -->
+    <div class="qr-actions">
+      <button class="btn orange" onclick="downloadQR()">Download</button>
+      <button class="btn" onclick="window.print()">Print</button>
+    </div>
+
+    <h3>Books History</h3>
+    <table id="studentHistoryTable">
+      <thead>
+        <tr>
+          <th>Book</th>
+          <th>Action / Student</th>
+          <th>Date</th>
+          <th>Due Date</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- QR Generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    function readStorage(k){ return JSON.parse(localStorage.getItem(k)||'[]') }
+
+    const studentNo = localStorage.getItem('lastStudent')
+    const students = readStorage('students')
+    const books = readStorage('books')
+    const transactions = readStorage('transactions')
+
+    const student = students.find(s=>s.studentNumber===studentNo)
+    if(!student){
+      document.getElementById('studentInfo').innerHTML = '<p>No student found. Please login again.</p>'
+    } else {
+      document.getElementById('studentInfo').innerHTML = `
+        <p><b>Student No:</b> ${student.studentNumber}</p>
+        <p><b>Name:</b> ${student.studentName}</p>
+        <p><b>Course:</b> ${student.course}</p>
+        <p><b>Department:</b> ${student.department}</p>
+        <p><b>Contact:</b> ${student.contact}</p>
+      `
+
+      // Generate QR
+      const qrText = JSON.stringify({ studentNumber: student.studentNumber })
+      new QRCode(document.getElementById('qrcode'), { text: qrText, width:180, height:180 })
+
+      renderStudentHistory(student.studentNumber)
+    }
+
+    function renderStudentHistory(studentNumber){
+      const tbody = document.querySelector('#studentHistoryTable tbody')
+      tbody.innerHTML = ''
+      const txs = transactions.filter(t=>t.studentNumber===studentNumber).sort((a,b)=> new Date(b.date)-new Date(a.date))
+
+      if(txs.length===0){ tbody.innerHTML = '<tr><td colspan="4">No history</td></tr>'; return }
+
+      txs.forEach(tx=>{
+        const book = books.find(b=>b.id===tx.bookId) || {title:'Unknown'}
+        let action = ''
+if (tx.type === 'borrow') {
+  action = 'Borrowed'
+} else if (tx.type === 'return') {
+  action = tx.returnStatus ? `Returned (${tx.returnStatus})` : 'Returned'
+} else if (tx.type === 'lost') {
+  action = 'Lost'
+}
+
+        let dueDisplay = '-'
+        if(tx.type==='borrow' && tx.dueDate){
+          const due = new Date(tx.dueDate)
+          if(!tx.returnedDate){
+            if(new Date() > due){
+              dueDisplay = `<span style="color:red;font-weight:bold">${due.toLocaleString()} ⚠️ Overdue</span>`
+            } else {
+              dueDisplay = due.toLocaleString()
+            }
+          } else {
+            dueDisplay = due.toLocaleString()
+          }
+        }
+
+        const tr = document.createElement('tr')
+        tr.innerHTML = `
+          <td>${book.title}</td>
+          <td>${action} by ${student.studentName} (${student.studentNumber})</td>
+          <td>${new Date(tx.date).toLocaleString()}</td>
+          <td>${dueDisplay}</td>
+        `
+        tbody.appendChild(tr)
+      })
+    }
+
+    // Download QR
+    function downloadQR(){
+      const canvas = document.querySelector('#qrcode canvas')
+      if(!canvas){ alert('QR code not generated yet'); return }
+      const link = document.createElement('a')
+      link.download = `qr_${student.studentNumber}.png`
+      link.href = canvas.toDataURL()
+      link.click()
+    }
+
+    function logout(){
+      localStorage.removeItem('lastStudent')
+      window.location.href = "login.html"
+    }
+  </script>
+</body>
+</html>
